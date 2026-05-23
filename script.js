@@ -8,6 +8,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Touch: tap once to reveal overlay, tap again to navigate (homepage only)
+    const galleryItems = document.querySelectorAll('.gallery .item');
+    if (galleryItems.length > 0) {
+        galleryItems.forEach(item => {
+            item.addEventListener('touchend', (e) => {
+                if (!item.classList.contains('active')) {
+                    e.preventDefault();
+                    galleryItems.forEach(other => other.classList.remove('active'));
+                    item.classList.add('active');
+                }
+                // Second tap: active already set, let the <a> navigate normally
+            });
+        });
+
+        // Dismiss overlay when tapping outside all items
+        document.addEventListener('touchend', (e) => {
+            if (!e.target.closest('.gallery .item')) {
+                galleryItems.forEach(item => item.classList.remove('active'));
+            }
+        });
+    }
+
     // Hamburger menu toggle
     const hamburger = document.getElementById('hamburger');
     const sidebar = document.querySelector('.sidebar');

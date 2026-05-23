@@ -86,4 +86,15 @@ document.addEventListener('DOMContentLoaded', () => {
         nextBtn.style.opacity = '0';
         closeBtn.style.opacity = '0';
     });
+
+    // Touch swipe left/right to navigate
+    let touchStartX = 0;
+    lightbox.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    lightbox.addEventListener('touchend', (e) => {
+        const diff = touchStartX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) navigate(diff > 0 ? 1 : -1);
+    });
 });

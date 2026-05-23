@@ -160,7 +160,8 @@ body {
 }
 
 .item:hover .overlay,
-.item:focus-within .overlay {
+.item:focus-within .overlay,
+.item.active .overlay {
     opacity: 1;
     pointer-events: auto;
 }
@@ -687,6 +688,20 @@ body {
     opacity: 0;
     transition: opacity 0.4s ease;
     pointer-events: none;
+}
+
+/* Overlay text scaled down for phone screens */
+@media (max-width: 600px) {
+    .overlay .year {
+        font-size: 11px;
+        margin-bottom: 4px;
+    }
+
+    .overlay .project {
+        font-size: 18px;
+        margin: 6px 10px;
+        letter-spacing: 0.5px;
+    }
 }
 
 /* ---- Responsive additions ---- */
