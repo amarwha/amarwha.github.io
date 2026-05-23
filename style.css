@@ -236,8 +236,9 @@ body {
         margin: 0;
     }
 
-    /* When nav is open: expand to full-screen overlay */
-    .sidebar.nav-open {
+    /* When nav is open or closing: full-screen overlay layout */
+    .sidebar.nav-open,
+    .sidebar.nav-closing {
         flex-direction: column;
         height: 100%;
         overflow-y: auto;
@@ -249,19 +250,32 @@ body {
         border-bottom: none;
     }
 
-    .sidebar.nav-open h1 {
+    .sidebar.nav-open h1,
+    .sidebar.nav-closing h1 {
         font-size: 26px;
         margin-bottom: 0;
     }
 
     .sidebar.nav-open p,
-    .sidebar.nav-open nav {
+    .sidebar.nav-closing p,
+    .sidebar.nav-open nav,
+    .sidebar.nav-closing nav {
         display: block;
     }
 
-    .sidebar.nav-open nav {
+    .sidebar.nav-open nav,
+    .sidebar.nav-closing nav {
         width: 100%;
         text-align: center;
+    }
+
+    /* Slide in from right on open, slide out on close */
+    .sidebar.nav-open {
+        animation: slideFromRight 0.3s ease forwards;
+    }
+
+    .sidebar.nav-closing {
+        animation: slideToRight 0.3s ease forwards;
     }
 
     /* Push content below fixed top bar */
@@ -688,6 +702,17 @@ body {
     opacity: 0;
     transition: opacity 0.4s ease;
     pointer-events: none;
+}
+
+/* Sidebar slide-in/out animations (mobile) */
+@keyframes slideFromRight {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+}
+
+@keyframes slideToRight {
+    from { transform: translateX(0); }
+    to   { transform: translateX(100%); }
 }
 
 /* Overlay text scaled down for phone screens */

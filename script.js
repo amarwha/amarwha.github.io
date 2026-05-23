@@ -30,29 +30,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Hamburger menu toggle
+    // Hamburger menu toggle with slide animation
     const hamburger = document.getElementById('hamburger');
     const sidebar = document.querySelector('.sidebar');
     if (hamburger && sidebar) {
+        function openNav() {
+            sidebar.classList.remove('nav-closing');
+            sidebar.classList.add('nav-open');
+            hamburger.innerHTML = '&times;';
+        }
+
+        function closeNav() {
+            sidebar.classList.add('nav-closing');
+            sidebar.classList.remove('nav-open');
+            hamburger.innerHTML = '&#9776;';
+            setTimeout(() => sidebar.classList.remove('nav-closing'), 300);
+        }
+
         hamburger.addEventListener('click', () => {
-            const isOpen = sidebar.classList.toggle('nav-open');
-            hamburger.innerHTML = isOpen ? '&times;' : '&#9776;';
+            sidebar.classList.contains('nav-open') ? closeNav() : openNav();
         });
 
-        // Close nav when any link is clicked
         sidebar.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                sidebar.classList.remove('nav-open');
-                hamburger.innerHTML = '&#9776;';
-            });
+            link.addEventListener('click', closeNav);
         });
 
-        // Close nav on Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                sidebar.classList.remove('nav-open');
-                hamburger.innerHTML = '&#9776;';
-            }
+            if (e.key === 'Escape' && sidebar.classList.contains('nav-open')) closeNav();
         });
     }
 });

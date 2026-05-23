@@ -9,10 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentIndex = 0;
     let loadToken = 0;
+    let isAnimating = false;
 
     function showImage() {
         loadToken++;
         const token = loadToken;
+        lightboxImg.style.transition = 'opacity 0.3s ease';
+        lightboxImg.style.transform = 'translateX(0)';
         lightboxImg.style.opacity = '0';
         if (captionEl) captionEl.style.opacity = '0';
 
@@ -45,22 +48,29 @@ document.addEventListener('DOMContentLoaded', () => {
         updateButtonVisibility();
     }
 
+    function openLightbox(index) {
+        currentIndex = index;
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        showImage();
+        updateButtonVisibility();
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
     galleryImages.forEach((img, index) => {
-        img.addEventListener('click', () => {
-            currentIndex = index;
-            lightbox.classList.add('active');
-            showImage();
-            updateButtonVisibility();
-        });
+        img.addEventListener('click', () => openLightbox(index));
     });
 
     prevBtn.addEventListener('click', () => navigate(-1));
     nextBtn.addEventListener('click', () => navigate(1));
-
-    closeBtn.addEventListener('click', () => lightbox.classList.remove('active'));
+    closeBtn.addEventListener('click', closeLightbox);
 
     lightbox.addEventListener('click', (e) => {
-        if (e.target === lightbox) lightbox.classList.remove('active');
+        if (e.target === lightbox) closeLightbox();
     });
 
     document.addEventListener('keydown', (e) => {
@@ -68,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (e.key) {
             case 'ArrowLeft':  navigate(-1); break;
             case 'ArrowRight': navigate(1);  break;
-            case 'Escape':     lightbox.classList.remove('active'); break;
+            case 'Escape':     closeLightbox(); break;
         }
     });
 
@@ -87,14 +97,78 @@ document.addEventListener('DOMContentLoaded', () => {
         closeBtn.style.opacity = '0';
     });
 
-    // Touch swipe left/right to navigate
+    // Interactive touch swipe — image follows finger, commits on release
     let touchStartX = 0;
+    let touchStartTime = 0;
+    let isDragging = false;
+
     lightbox.addEventListener('touchstart', (e) => {
+        if (isAnimating || e.touches.length !== 1) return;
         touchStartX = e.touches[0].clientX;
+        touchStartTime = Date.now();
+        isDragging = true;
+        lightboxImg.style.transition = 'none';
+    }, { passive: true });
+
+    lightbox.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        const delta = e.touches[0].clientX - touchStartX;
+        const atStart = currentIndex === 0;
+        const atEnd = currentIndex === galleryImages.length - 1;
+        // Rubber-band resistance at boundaries
+        const d = ((atStart && delta > 0) || (atEnd && delta < 0)) ? delta * 0.15 : delta;
+        lightboxImg.style.transform = `translateX(${d}px)`;
     }, { passive: true });
 
     lightbox.addEventListener('touchend', (e) => {
-        const diff = touchStartX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 50) navigate(diff > 0 ? 1 : -1);
+        if (!isDragging) return;
+        isDragging = false;
+
+        const delta = e.changedTouches[0].clientX - touchStartX;
+        const velocity = Math.abs(delta) / (Date.now() - touchStartTime);
+        const screenWidth = window.innerWidth;
+        const direction = delta < 0 ? 1 : -1;
+
+        const canGo = direction === 1
+            ? currentIndex < galleryImages.length - 1
+            : currentIndex > 0;
+
+        if (canGo && (Math.abs(delta) > screenWidth * 0.25 || velocity > 0.4)) {
+            // Commit: slide current image out then bring next one in
+            isAnimating = true;
+            loadToken++;
+            lightboxImg.style.transition = 'transform 0.25s ease';
+            lightboxImg.style.transform = `translateX(${direction === 1 ? -screenWidth : screenWidth}px)`;
+
+            setTimeout(() => {
+                currentIndex += direction;
+                updateButtonVisibility();
+                if (captionEl) captionEl.style.opacity = '0';
+
+                lightboxImg.style.transition = 'none';
+                lightboxImg.style.opacity = '0';
+                lightboxImg.style.transform = `translateX(${direction === 1 ? screenWidth : -screenWidth}px)`;
+
+                const preloader = new Image();
+                preloader.src = galleryImages[currentIndex].src;
+                preloader.onload = () => {
+                    lightboxImg.src = preloader.src;
+                    if (captionEl) captionEl.textContent = galleryImages[currentIndex].dataset.title || '';
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            lightboxImg.style.transition = 'transform 0.25s ease, opacity 0.2s ease';
+                            lightboxImg.style.transform = 'translateX(0)';
+                            lightboxImg.style.opacity = '1';
+                            if (captionEl && captionEl.textContent) captionEl.style.opacity = '1';
+                            setTimeout(() => { isAnimating = false; }, 260);
+                        });
+                    });
+                };
+            }, 250);
+        } else {
+            // Snap back
+            lightboxImg.style.transition = 'transform 0.25s ease';
+            lightboxImg.style.transform = 'translateX(0)';
+        }
     });
 });
