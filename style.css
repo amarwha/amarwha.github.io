@@ -739,5 +739,10 @@ body {
     .about-portrait {
         width: 200px;
     }
+
+    .contact-form button {
+        color: #222;
+        -webkit-appearance: none;
+    }
 }
 
