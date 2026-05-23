@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About | Ashish Marwha</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <button class="hamburger" id="hamburger" aria-label="Open menu">&#9776;</button>
+
+    <div class="container">
+        <aside class="sidebar">
+            <h1><a href="../index.html">ASHISH MARWHA</a></h1>
+            <p>Architect | BIM Consultant</p>
+            <nav>
+                <ul>
+                    <li><a href="about.html">About</a></li>
+                    <li class="nav-section">WORK</li>
+                    <li class="nav-project"><a href="j3mall.html">J3 Mall</a></li>
+                    <li class="nav-project"><a href="hessah.html">Hessah Al Mubarak District</a></li>
+                    <li class="nav-project"><a href="npoj.html">New Palace of Justice Kuwait</a></li>
+                    <li class="nav-project"><a href="fsk.html">Future Schools of Kuwait</a></li>
+                    <li class="nav-project"><a href="marrassi.html">Marrassi Al Bahrain Mall</a></li>
+                    <li class="nav-project"><a href="mak.html">Mubarak Al Kabeer Port</a></li>
+                    <li class="nav-project"><a href="hgi.html">Hilton Garden Inn</a></li>
+                    <li class="nav-project"><a href="previous.html">Previous Works</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <section class="about-detail">
+                <h2>ABOUT</h2>
+                <div class="about-content">
+                    <img src="../Images/My Portrait.jpg" alt="Ashish Marwha" class="about-portrait">
+                    <div class="about-text">
+                        <p>I'm a 36-Year-Old Architect and BIM Specialist coming from the Himalayan Region of India, with over 12 Years of Experience across Architecture, Design, and Virtual Design Coordination. My Professional Journey has taken me from Five Exciting Years in Kuwait to my Current Base in London.</p>
+                        <p>My Core Interests lie in Architectural Design and Development, Urban and Sustainable Design, and the Integration of Computational Tools in Design Processes. As a BIM Specialist, I'm Passionate about Leveraging Building Information Modelling not just as a Coordination Tool, but as a Driver of Smarter Workflows, Efficient Collaboration, and Data-Informed Decision-Making across All Project Stages.</p>
+                        <p>I've had the Opportunity to Work both Independently and within Renowned Architectural Studios, Collaborating with Multidisciplinary Teams on Complex Projects. I Enjoy Working with Professionals who Share a Curiosity for Design, Technology and Innovation. My Focus is on Delivering Solutions that are Functional, Safe, Efficient, and Aligned with both Client Goals and Project Vision.</p>
+                    </div>
+                </div>
+                <div class="back-to-top"><a href="#">↑ Back to Top</a></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Portrait Lightbox (no prev/next — single image) -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close">&times;</button>
+        <img src="" alt="Ashish Marwha">
+    </div>
+
+    <script src="../script.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const portrait  = document.querySelector('.about-portrait');
+        const lightbox  = document.getElementById('lightbox');
+        const lightboxImg = lightbox.querySelector('img');
+        const closeBtn  = lightbox.querySelector('.lightbox-close');
+
+        portrait.addEventListener('click', () => {
+            lightboxImg.src = portrait.src;
+            lightboxImg.style.opacity = '1';
+            lightbox.classList.add('active');
+        });
+
+        closeBtn.addEventListener('click', () => lightbox.classList.remove('active'));
+
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) lightbox.classList.remove('active');
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') lightbox.classList.remove('active');
+        });
+
+        // Show close button on mouse move (no prev/next on portrait)
+        lightbox.addEventListener('mousemove', () => {
+            closeBtn.style.opacity = '1';
+        });
+        lightbox.addEventListener('mouseleave', () => {
+            closeBtn.style.opacity = '0';
+        });
+    });
+    </script>
+</body>
+</html>
