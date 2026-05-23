@@ -13,6 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadToken    = 0;
     let isAnimating  = false;
 
+    // Desktop zoom state
+    let desktopZoomed = false;
+    let maxZoomScale  = 4; // updated from naturalWidth after each image loads
+
     // ── Unified transform state ─────────────────────────────────────
     // All touch gestures use translate(panX,panY) scale(scale).
     // transform-origin is always center, so pan offsets handle zoom anchor.
@@ -26,6 +30,17 @@ document.addEventListener('DOMContentLoaded', () => {
         scale = 1; panX = 0; panY = 0;
         lightboxImg.style.transition = animated ? 'transform 0.3s ease' : 'none';
         applyTransform();
+    }
+
+    function updateDesktopCursor() {
+        const dpr = window.devicePixelRatio || 1;
+        if (desktopZoomed) {
+            lightboxImg.style.cursor = 'grab';
+        } else if (lightboxImg.naturalWidth > lightboxImg.offsetWidth * dpr * 1.1) {
+            lightboxImg.style.cursor = 'zoom-in';
+        } else {
+            lightboxImg.style.cursor = 'default';
+        }
     }
 
     // Keep zoomed image from panning fully out of view
@@ -43,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadToken++;
         const token = loadToken;
         isAnimating = false;
+        desktopZoomed = false;
+        lightboxImg.style.cursor = 'default';
         resetTransform(false);
         lightboxImg.style.transition = 'none';
         lightboxImg.style.opacity = '0';
@@ -58,6 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 lightboxImg.style.transition = 'opacity 0.3s ease';
                 lightboxImg.style.opacity = '1';
                 if (captionEl && captionEl.textContent) captionEl.style.opacity = '1';
+                // Compute full-res zoom scale once layout is known
+                requestAnimationFrame(() => {
+                    const dpr = window.devicePixelRatio || 1;
+                    maxZoomScale = Math.max(2, Math.min(5, pre.naturalWidth / (lightboxImg.offsetWidth * dpr)));
+                    updateDesktopCursor();
+                });
             });
         };
     }
@@ -89,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lightbox.classList.remove('active');
         document.body.style.overflow = '';
         resetTransform(false);
+        desktopZoomed = false;
+        lightboxImg.style.cursor = 'default';
     }
 
     // ── Desktop / keyboard controls ─────────────────────────────────
@@ -114,6 +139,66 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     lightbox.addEventListener('mouseleave', () => {
         prevBtn.style.opacity = nextBtn.style.opacity = closeBtn.style.opacity = '0';
+    });
+
+    // ── Desktop zoom & pan ──────────────────────────────────────────
+    let dragActive = false, dragMoved = false;
+    let dragStartX = 0, dragStartY = 0, dragT0PanX = 0, dragT0PanY = 0;
+
+    lightboxImg.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        dragActive  = true;
+        dragMoved   = false;
+        dragStartX  = e.clientX;
+        dragStartY  = e.clientY;
+        dragT0PanX  = panX;
+        dragT0PanY  = panY;
+        if (desktopZoomed) lightboxImg.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!dragActive || !desktopZoomed) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+        panX = dragT0PanX + dx;
+        panY = dragT0PanY + dy;
+        clampPan();
+        lightboxImg.style.transition = 'none';
+        applyTransform();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!dragActive) return;
+        dragActive = false;
+        if (desktopZoomed) lightboxImg.style.cursor = 'grab';
+    });
+
+    lightboxImg.addEventListener('click', (e) => {
+        if (dragMoved) { dragMoved = false; return; }
+        if (desktopZoomed) {
+            scale = 1; panX = 0; panY = 0;
+            lightboxImg.style.transition = 'transform 0.3s ease';
+            applyTransform();
+            desktopZoomed = false;
+            updateDesktopCursor();
+        } else {
+            const zScale = maxZoomScale;
+            if (zScale <= 1.05) return;
+            const cx  = window.innerWidth  / 2;
+            const cy  = window.innerHeight / 2;
+            const ipx = (e.clientX - cx - panX) / scale;
+            const ipy = (e.clientY - cy - panY) / scale;
+            scale = zScale;
+            panX  = e.clientX - cx - ipx * zScale;
+            panY  = e.clientY - cy - ipy * zScale;
+            clampPan();
+            lightboxImg.style.transition = 'transform 0.3s ease';
+            applyTransform();
+            desktopZoomed = true;
+            lightboxImg.style.cursor = 'grab';
+        }
     });
 
     // ── Mobile touch system ─────────────────────────────────────────
@@ -173,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Pinch zoom with midpoint anchor
         if (e.touches.length === 2 && gestureType === 'pinch') {
             const newDist  = pinchDist(e.touches);
-            const newScale = Math.min(4, Math.max(1, pinchStartScale * newDist / pinchStartDist));
+            const newScale = Math.min(maxZoomScale, Math.max(1, pinchStartScale * newDist / pinchStartDist));
             // Keep the original pinch midpoint fixed in the viewport
             const cx  = window.innerWidth  / 2;
             const cy  = window.innerHeight / 2;
@@ -270,8 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     lightboxImg.style.transition = 'transform 0.3s ease';
                     applyTransform();
                 } else {
-                    // Zoom in 2.5× anchored at tap point
-                    const tScale = 2.5;
+                    // Zoom in to full resolution anchored at tap point
+                    const tScale = maxZoomScale;
                     const cx  = window.innerWidth  / 2;
                     const cy  = window.innerHeight / 2;
                     // Convert tap viewport coords → image-space coords
@@ -365,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     lightboxImg.style.opacity    = '1';
                     if (captionEl && captionEl.textContent) captionEl.style.opacity = '1';
                     setTimeout(() => { isAnimating = false; }, 260);
+                    const dpr = window.devicePixelRatio || 1;
+                    maxZoomScale = Math.max(2, Math.min(5, pre.naturalWidth / (lightboxImg.offsetWidth * dpr)));
                 }));
             };
         }, 250);
