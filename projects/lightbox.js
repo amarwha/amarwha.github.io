@@ -10,12 +10,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentIndex = 0;
     let loadToken = 0;
     let isAnimating = false;
+    let isZoomed = false;
+
+    // Double-tap tracking
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    // Swipe tracking
+    let touchStartX = 0;
+    let touchStartTime = 0;
+    let isDragging = false;
+
+    function resetZoom() {
+        isZoomed = false;
+        lightboxImg.style.transformOrigin = 'center center';
+        lightboxImg.style.transform = 'translateX(0) scale(1)';
+    }
 
     function showImage() {
         loadToken++;
         const token = loadToken;
+        isZoomed = false;
         lightboxImg.style.transition = 'opacity 0.3s ease';
-        lightboxImg.style.transform = 'translateX(0)';
+        lightboxImg.style.transformOrigin = 'center center';
+        lightboxImg.style.transform = 'translateX(0) scale(1)';
         lightboxImg.style.opacity = '0';
         if (captionEl) captionEl.style.opacity = '0';
 
@@ -25,9 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         preloader.onload = () => {
             if (token !== loadToken) return;
             lightboxImg.src = preloader.src;
-            if (captionEl) {
-                captionEl.textContent = galleryImages[currentIndex].dataset.title || '';
-            }
+            if (captionEl) captionEl.textContent = galleryImages[currentIndex].dataset.title || '';
             requestAnimationFrame(() => {
                 lightboxImg.style.opacity = '1';
                 if (captionEl && captionEl.textContent) captionEl.style.opacity = '1';
@@ -50,6 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openLightbox(index) {
         currentIndex = index;
+        isZoomed = false;
+        lastTapTime = 0;
         lightbox.classList.add('active');
         document.body.style.overflow = 'hidden';
         showImage();
@@ -59,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeLightbox() {
         lightbox.classList.remove('active');
         document.body.style.overflow = '';
+        resetZoom();
     }
 
     galleryImages.forEach((img, index) => {
@@ -83,11 +103,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     lightbox.addEventListener('mousemove', (e) => {
-        const windowWidth = window.innerWidth;
-        const mouseX = e.clientX;
-        const threshold = windowWidth * 0.3;
-        prevBtn.style.opacity = mouseX < threshold ? '1' : '0';
-        nextBtn.style.opacity = mouseX > (windowWidth - threshold) ? '1' : '0';
+        const w = window.innerWidth;
+        const threshold = w * 0.3;
+        prevBtn.style.opacity = e.clientX < threshold ? '1' : '0';
+        nextBtn.style.opacity = e.clientX > (w - threshold) ? '1' : '0';
         closeBtn.style.opacity = '1';
     });
 
@@ -97,13 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
         closeBtn.style.opacity = '0';
     });
 
-    // Interactive touch swipe — image follows finger, commits on release
-    let touchStartX = 0;
-    let touchStartTime = 0;
-    let isDragging = false;
+    // ── Touch handling ─────────────────────────────────────────────
 
     lightbox.addEventListener('touchstart', (e) => {
-        if (isAnimating || e.touches.length !== 1) return;
+        // Multi-touch (pinch): cancel swipe entirely
+        if (e.touches.length > 1) {
+            isDragging = false;
+            return;
+        }
+        // No swipe while zoomed or animating
+        if (isAnimating || isZoomed) {
+            isDragging = false;
+            return;
+        }
         touchStartX = e.touches[0].clientX;
         touchStartTime = Date.now();
         isDragging = true;
@@ -115,30 +140,66 @@ document.addEventListener('DOMContentLoaded', () => {
         const delta = e.touches[0].clientX - touchStartX;
         const atStart = currentIndex === 0;
         const atEnd = currentIndex === galleryImages.length - 1;
-        // Rubber-band resistance at boundaries
+        // Rubber-band at edges
         const d = ((atStart && delta > 0) || (atEnd && delta < 0)) ? delta * 0.15 : delta;
-        lightboxImg.style.transform = `translateX(${d}px)`;
+        lightboxImg.style.transform = `translateX(${d}px) scale(1)`;
     }, { passive: true });
 
     lightbox.addEventListener('touchend', (e) => {
-        if (!isDragging) return;
-        isDragging = false;
+        if (e.changedTouches.length !== 1) return;
+        const touch = e.changedTouches[0];
+        const now = Date.now();
+        const moveDelta = touch.clientX - touchStartX;
 
-        const delta = e.changedTouches[0].clientX - touchStartX;
-        const velocity = Math.abs(delta) / (Date.now() - touchStartTime);
+        // If barely moved, treat as a tap regardless of isDragging
+        if (isDragging && Math.abs(moveDelta) < 10) {
+            isDragging = false;
+        }
+
+        if (!isDragging) {
+            // ── Tap / double-tap detection ──
+            const timeSince = now - lastTapTime;
+            const dx = touch.clientX - lastTapX;
+            const dy = touch.clientY - lastTapY;
+
+            if (lastTapTime > 0 && timeSince < 300 && Math.sqrt(dx * dx + dy * dy) < 60) {
+                // Double-tap!
+                lastTapTime = 0;
+                if (isZoomed) {
+                    lightboxImg.style.transition = 'transform 0.3s ease';
+                    resetZoom();
+                } else {
+                    const rect = lightboxImg.getBoundingClientRect();
+                    const ox = ((touch.clientX - rect.left) / rect.width) * 100;
+                    const oy = ((touch.clientY - rect.top) / rect.height) * 100;
+                    lightboxImg.style.transformOrigin = `${ox}% ${oy}%`;
+                    lightboxImg.style.transition = 'transform 0.3s ease';
+                    lightboxImg.style.transform = 'scale(2.5)';
+                    isZoomed = true;
+                }
+            } else {
+                lastTapTime = now;
+                lastTapX = touch.clientX;
+                lastTapY = touch.clientY;
+            }
+            return;
+        }
+
+        // ── Swipe commit / snap-back ──
+        isDragging = false;
+        const velocity = Math.abs(moveDelta) / (now - touchStartTime);
         const screenWidth = window.innerWidth;
-        const direction = delta < 0 ? 1 : -1;
+        const direction = moveDelta < 0 ? 1 : -1;
 
         const canGo = direction === 1
             ? currentIndex < galleryImages.length - 1
             : currentIndex > 0;
 
-        if (canGo && (Math.abs(delta) > screenWidth * 0.25 || velocity > 0.4)) {
-            // Commit: slide current image out then bring next one in
+        if (canGo && (Math.abs(moveDelta) > screenWidth * 0.25 || velocity > 0.4)) {
             isAnimating = true;
             loadToken++;
             lightboxImg.style.transition = 'transform 0.25s ease';
-            lightboxImg.style.transform = `translateX(${direction === 1 ? -screenWidth : screenWidth}px)`;
+            lightboxImg.style.transform = `translateX(${direction === 1 ? -screenWidth : screenWidth}px) scale(1)`;
 
             setTimeout(() => {
                 currentIndex += direction;
@@ -147,7 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 lightboxImg.style.transition = 'none';
                 lightboxImg.style.opacity = '0';
-                lightboxImg.style.transform = `translateX(${direction === 1 ? screenWidth : -screenWidth}px)`;
+                lightboxImg.style.transformOrigin = 'center center';
+                lightboxImg.style.transform = `translateX(${direction === 1 ? screenWidth : -screenWidth}px) scale(1)`;
 
                 const preloader = new Image();
                 preloader.src = galleryImages[currentIndex].src;
@@ -157,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             lightboxImg.style.transition = 'transform 0.25s ease, opacity 0.2s ease';
-                            lightboxImg.style.transform = 'translateX(0)';
+                            lightboxImg.style.transform = 'translateX(0) scale(1)';
                             lightboxImg.style.opacity = '1';
                             if (captionEl && captionEl.textContent) captionEl.style.opacity = '1';
                             setTimeout(() => { isAnimating = false; }, 260);
@@ -166,9 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }, 250);
         } else {
-            // Snap back
             lightboxImg.style.transition = 'transform 0.25s ease';
-            lightboxImg.style.transform = 'translateX(0)';
+            lightboxImg.style.transform = 'translateX(0) scale(1)';
         }
     });
 });
